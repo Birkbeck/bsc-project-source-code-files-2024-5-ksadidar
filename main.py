@@ -22,6 +22,9 @@ from sklearn.metrics import precision_score, recall_score, mean_squared_error
 import pandera
 from pandera import Column, DataFrameSchema, Check
 
+#ast for safe evaluation of string representation of dicts and lists
+import ast
+
 #creating all the dataframes
 df_year = pd.read_csv('data_by_year.csv')
 print(df_year.head())
@@ -35,24 +38,11 @@ print(df_artist.head())
 df_data = pd.read_csv('data.csv')
 print(df_data.head())
 
-#creating a function to analyse all the dataframes
-def analyse_dataframes(df, df_name):
-    print(f"analysingDataframe: {df_name}")
-    print(f"Shape: {df.shape}")
-    print(f"Columns: {df.columns.tolist()}")
-    print(f"Missing values: {df.isnull().sum().sum()}")
-    print(f"Data types:\n{df.dtypes}")
-    print(f"First 5 rows:\n{df.head()}")
-    print("\n")
-    print(df.isnull().sum())
-    print("\nDescriptive Statistics:")
-    print(df.describe(include='all'))
 
 #DATA CLEANING
 
 #checking and filling in for missing values
-for col in df_arti
-st.columns:
+for col in df_artist.columns:
     if df_artist[col].isnull().any():
         print(f"Missing values are found in the df_artist column '{col}'.")
         if pd.api.types.is_numeric_dtype(df_artist[col]):
@@ -84,12 +74,118 @@ for col in df_data.columns:
         else:
             df_artist[col].fillna(df_data[col].mode()[0], inplace = True)
 
-#removing the duplicates
+#removing redundant records
 df_artist.drop_duplicates(inplace = True)
 df_year.drop_duplicates(inplace = True)
 df_genres.drop_duplicates(inplace = True)
 df_data.drop_duplicates(inplace = True)
 
+
+#cleaning all the dataframes
+dataframes = {
+    'main': df_data,
+    'year': df_year,
+    'artist': df_artist,
+    'genre':df_genres
+}
+
 #stripping off the whitespace and lowercase strings in the object columns
-for col in df.select_dtypes(include='object').columns:
-    df[col] = df[col].astype(str).str.strip().str.lower()
+for name, df in dataframes.items():
+    for col in df.select_dtypes(include='object').columns:
+        df[col]=df[col].astype(str).str.strip().str.lower()
+    print(f"Cleaned {name} DataFrame")
+
+
+
+#EDA ~ explore through each dataset to see contents & get insights 
+
+
+#creating a function to analyse all the dataframes
+def analyse_dataframes(df, df_name):
+    print(f"analysingDataframe: {df_name}")
+    print(f"Shape: {df.shape}")
+    print(f"Columns: {df.columns.tolist()}")
+    print(f"Missing values: {df.isnull().sum().sum()}")
+    print(f"Data types:\n{df.dtypes}")
+    print(f"First 5 rows:\n{df.head()}")
+    print("\n")
+    print(df.isnull().sum())
+    print("\nDescriptive Statistics:")
+    print(df.describe(include='all'))
+
+#create a list of audio features from observaytions of data.csv for easier selection
+audioFeatures = ['acoustisness', 'danceability', 'duration_ms', 'energy', 
+                'instrumentalness', 'loudness', 'liveness', 'speechiness', 'tempo', 'valence', 
+                'popularity', 'duration_ms', 'key', 'mode', 'time_period']
+
+
+#Distributing the numerical values of audioFeatures
+
+#checking if the features are available in the dataset
+availableAudioFeatures = [col for col in audioFeatures if col in df_data.columns]
+
+#plotting the features
+for i, col in enumerate(availableAudioFeatures):
+    if df_data[col].dtype in ['int64', 'float64']:
+        plt.subplot(4,4, i+1)
+        sns.histplot(df_data[col], kde=True,bins=50)
+        plt.title(col)
+    plt.tight_layout
+    plt.suptitle("Distribution of the numerical values of audioFeatures in data.csv")
+    plt.show()
+
+#plotting the Popularity Distributions
+plt.figure(figsize=(11,7))
+sns.histplot(df_data['popularity'], kde=True, bins=50)
+plt.title('Distribution of song popularity in the dataset')
+plt.xlabel('Popularity')
+plt.ylabel('Frequency')
+plt.show()
+print(f"Popularity Stats:\n{df_data['popularity'].describe()} ")
+
+#CORRELATION of audioFeatures & Popularity
+correlationFeature = audioFeatures+['popularity']
+correlationFeature = [f for f in correlationFeature if f in df_data.columns and df_data[f].dtype in ['int64', 'float64']]
+corrMatrrix = df_data[correlationFeature].corr()
+plt.figure(figsize=(14,10))
+sns.heatmap(corrMatrrix, annot=True, cmap='coolwarm')
+plt.title("CorrelationMatrix of AudioFeatures against Popularity")
+plt.show()
+
+#PARSING 'artist' column to create a list of Populart artists
+df_data['parsedArtists']=df_data['artists'].apply(lambda x: ast.literal_eval(x))
+df_data['popularArtists']=df_data['parsedArtists'].apply(lambda x: x[0] if isinstance(x, list) and len(x)> 0 else None)
+print("successfully parsed artists column and made a list of the most popular artist")
+print("\nTop10 most played popularArtists:")
+print(df_data['popularArtists'].value_counts().nlargest(10))
+
+
+#plotting it in a graph
+Popular_artists = df_data['popularArtists'].value_counts().nlargest(10)
+plt.figure(figsize=(12,8))
+sns.barplot(x=Popular_artists.values, y= Popular_artists.index, palette='viridis')
+plt.title('Top10 most played popularArtists', fontsize=12)
+plt.xlabel('number of tracks')
+plt.ylabel('Artist')
+for i, value in enumerate(Popular_artists.values):
+    plt.text(value +2, i, str(value), va='center')
+plt.tight_layout()
+plt.show()
+
+#EDA of data_by_year, to find trend over time
+print("\n-- Data by YEAR from the dataset data_by_year.csv --")
+print(f"Shape: {df_year.shape}")
+print(df_year.head)
+
+#plotting key audioFeatures to see trends over the years
+keyAudioFeatures = ['popularity', 'danceability', 'loudness', 'energy', 'tempo', 'valence', 'acousticness', 'speechiness', 'liveness']
+plt.figure(figsize=(17,14))
+for i, feature in enumerate(keyAudioFeatures):
+    if feature in df_year.columns:
+        plt.subplot(5,4,i+1)
+        sns.lineplot(x='year', y=feature, data=df_year)
+        plt.title('Audio Features over the years')
+    plt.tight_layout()
+    plt.suptitle("Trends of KeyAudioFeatures & Popularity Over the Years", y=1.02, fontsize=14)
+    plt.show()
+
