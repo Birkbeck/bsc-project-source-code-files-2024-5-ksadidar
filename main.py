@@ -19,8 +19,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import precision_score, recall_score, mean_squared_error
 
 #pandera library for schema validation, data checking and integration with ML 
-import pandera
-from pandera import Column, DataFrameSchema, Check
+#import pandera
+#from pandera import Column, DataFrameSchema, Check
 
 #ast for safe evaluation of string representation of dicts and lists
 import ast
@@ -30,7 +30,7 @@ df_year = pd.read_csv('data_by_year.csv')
 print(df_year.head())
 
 df_genres = pd.read_csv('data_by_genres.csv')
-print(df_year.head())
+print(df_genres.head())
 
 df_artist = pd.read_csv('data_by_artist.csv')
 print(df_artist.head())
@@ -113,7 +113,7 @@ def analyse_dataframes(df, df_name):
     print("\nDescriptive Statistics:")
     print(df.describe(include='all'))
 
-#create a list of audio features from observaytions of data.csv for easier selection
+#create a list of audio features from observaytions of data.csv for easier feature selection
 audioFeatures = ['acoustisness', 'danceability', 'duration_ms', 'energy', 
                 'instrumentalness', 'loudness', 'liveness', 'speechiness', 'tempo', 'valence', 
                 'popularity', 'duration_ms', 'key', 'mode', 'time_period']
@@ -188,4 +188,86 @@ for i, feature in enumerate(keyAudioFeatures):
     plt.tight_layout()
     plt.suptitle("Trends of KeyAudioFeatures & Popularity Over the Years", y=1.02, fontsize=14)
     plt.show()
+
+#EDA on the Genre characteristics, data_by_genre.csv
+print("\n-- Data by GENRE from the dataset data_by_genres.csv --")
+print(f"Shape: {df_genres.shape}")
+print(df_genres.head)
+print(f"\nNumber of Unique Genres: {df_genres['genres'].nunique()}")
+
+#creating a small batch of genres for simplicity
+sampleGenres = df_genres.sample(n=min(10, len(df_genres)), random_state=42)
+
+#plotting the sample genres
+plt.figure(figsize=(17,14))
+plotFeatures=[f for f in audioFeatures 
+if f in sampleGenres.columns and 
+df_genres[f].dtype in ['float64', 'int64'] 
+#filter the audio features with high variances to make the data plot ready
+and f not in ['key', 'mode', 'time_period', 'duration_ms', 'tempo', 'loudness']]
+
+#melt genres dataframe for easier plotting 
+if plotFeatures:
+    meltedGenres = sampleGenres.melt(id_vars=['genres'], value_vars=plotFeatures, var_name='features', value_name='value')
+    sns.barplot(x='features', y='value', hue='genres', data=meltedGenres)
+    plt.title('Comparison of audioFeatures from a sample of GENRES')
+    plt.xticks(rotation=45, ha='right')
+    plt.legend(bbox_to_anchor=(1.15, 1), loc=2)
+    plt.tight_layout()
+    plt.show()
+
+
+#PIPELINE for further Genre Analysis using TSNE
+#def_genresClean=df_genres.dropna(subset=['genres', 'danceability', 'energy', 'loudness'])
+
+#def_genresSummary=def_genresClean.groupby('genres').agg(
+ #   mean_danceability=('danceability', 'mean'), 
+  #  max_energy=('energy', 'max'),
+   # stddev_loudness=('loudness', 'std')).reset_index()
+
+#dropping rows with NaNs
+#def_genresSummary.dropna(inplace=True)
+
+#separating the genre names
+#genre_names=def_genresSummary['genres']
+#X = def_genresSummary.drop(columns=['genres'])
+
+#normalising the features
+#scaler = StandardScaler()
+#X_scaled = scaler.fit_transform(X)
+
+#dimensionality reduction for visualisation using  t-SNE
+#tsne = TSNE(n_components=2,perplexity=30,n_iter=100,random_state=42)
+#X_tsne = tsne.fit_transform(X_scaled)
+
+#combining genre names for visualisation
+#df_tsne=pd.DataFrame(X_tsne, columns=['Dim1', 'Dim2'])
+#df_tsne['genres']=genre_names
+
+#plotting
+#plt.figure(figsize=(14,10))
+#sns.scatterplot(data=df_tsne, x='Dim1',y='Dim2',hue='genres',palette='tab10',s=100, legend=False)
+#plt.title("t-sne projection of Genres based on audioFeatures")
+#plt.show()
+
+
+
+#EDA on the ARTIST characteristics, data_by_artist.csv
+print("\n-- Data by GENRE from the dataset data_by_artist.csv --")
+print(f"Shape: {df_artist.shape}")
+print(df_artist.head)
+print(f"\nNumber of Unique Artists: {df_artist['artists'].nunique()}")
+
+#distribution of artist popularity
+if 'popularity' in df_artist.columns:
+    plt.figure(figsize=(10, 7))
+    sns.histplot(df_artist['popularity'], kde=True, bins=50)
+    plt.title('Distribution of Artist popularity from the artist dataset')
+    plt.xlabel('Mean Popularity')
+    plt.show()
+
+#top 10 artists by Popularity
+if 'popularity' in df_artist.columns:
+    print("\nTop 10 artists by Mean Popularity from the Artist dataset")
+    print(df_artist.nlargest(10, 'popularity')[['artists', 'popularity', 'count']])
 
