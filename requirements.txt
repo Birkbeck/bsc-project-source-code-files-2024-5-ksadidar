@@ -16,5 +16,6 @@ scikit-surprise==1.1.4
 scipy==1.15.3
 seaborn==0.13.2
 six==1.17.0
+surprise==0.1
 threadpoolctl==3.6.0
 tzdata==2025.2

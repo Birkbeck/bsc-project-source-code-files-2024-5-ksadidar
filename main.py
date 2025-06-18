@@ -3,13 +3,15 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from surprise import SVD, Dataset, Reader
-from surprise.model_selection import train_test_split
+#from surprise import SVD, Dataset, Reader
+#from surprise.model_selection import train_test_split
 
 
 # scikitlearn packages for further statistical learning from the dataset
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.pipeline import Pipeline
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
@@ -204,7 +206,9 @@ plotFeatures=[f for f in audioFeatures
 if f in sampleGenres.columns and 
 df_genres[f].dtype in ['float64', 'int64'] 
 #filter the audio features with high variances to make the data plot ready
-and f not in ['key', 'mode', 'time_period', 'duration_ms', 'tempo', 'loudness']]
+and f not in ['key', 'mode', 'time_signature', 'duration_ms', 'tempo', 'loudness']]
+
+
 
 #melt genres dataframe for easier plotting 
 if plotFeatures:
@@ -271,3 +275,98 @@ if 'popularity' in df_artist.columns:
     print("\nTop 10 artists by Mean Popularity from the Artist dataset")
     print(df_artist.nlargest(10, 'popularity')[['artists', 'popularity', 'count']])
 
+#scatterPlot showing energy against danceability 
+if 'energy' in df_artist.columns and 'danceability' in df_artist.columns:
+    plt.figure(figsize=(10,8))
+
+    #we create a sample of artists to avoid overplotting
+    sampleOfArtist = df_artist.sample(n=min(5000, len(df_artist)), random_state=1) if len(df_artist) > 0 else pd.DataFrame()
+    if not sampleOfArtist.empty:
+        sns.scatterplot(x='danceability', y='energy', data=sampleOfArtist, alpha=0.5, 
+                        size='popularity' if 'popularity' in sampleOfArtist.columns else None,
+                        hue='loudness' if 'loudness' in sampleOfArtist.columns else None)
+        plt.title('Artist Energy versus Danceability')
+        plt.xlabel('Mean Danceability')
+        plt.ylabel('Mean Energy')
+        plt.show()
+    else:
+        print("there is not enough artist data available")
+else:
+    print("data_by_artist.csv is empty or the columns we are looking for do not exist")
+
+##RECOMMENDER SETUP
+
+#data preparation for the recommender
+if not df_data.empty and 'popularArtists' in df_data.columns:
+    df_recommender=df_data.sample(frac=0.2, random_state=42)#use only 20% of the main dataset
+    print(f"recommender dataset shape: {df_recommender.shape}")
+
+    #selecting features for content-based filtering
+    contentFeatures=['acousticness', 'danceability', 'energy', 'instrumentalness', 
+    'liveness', 'loudness', 'tempo', 'speechiness', 'valence', 'duration_ms']
+
+    #checking presence of these features in dataset
+    contentFeatures=[f for f in contentFeatures if f in df_recommender.columns]
+    if not contentFeatures:
+        print("no content features available in the recommender dataframe")
+        #dummy df recommender features
+        dfRecommenderFeatures=pd.DataFrame()
+    else:
+        recommenderCols=['id', 'name', 'popularArtists', 'popularity'] + contentFeatures
+        dfRecommenderFeatures=df_recommender[recommenderCols].copy()
+
+        dfRecommenderFeatures.dropna(subset=contentFeatures, inplace=True)
+        print(f"shape after dropping NA from contentFeatures: {dfRecommenderFeatures}")
+
+        scaler=MinMaxScaler()
+        dfRecommenderFeatures[contentFeatures]=scaler.fit_transform(dfRecommenderFeatures[contentFeatures])
+        print("\nprocessed features for recommender{first 5 rows}:")
+        print(dfRecommenderFeatures.head())
+else:
+    print("main datset is empty or popular artists column was not created")
+    print(dfRecommenderFeatures)==pd.DataFrame()
+
+
+##BUILDING the RECOMMENDER function
+
+if not dfRecommenderFeatures.empty and 'id' in dfRecommenderFeatures.columns:
+    itemsFeatureMatrix=dfRecommenderFeatures.set_index('id')[contentFeatures] #item feature matrix for cosine similarity
+    cosineSimilarityMatrix = cosine_similarity(itemsFeatureMatrix) #calculating the cosine similarity
+    #mapping the song index
+    songId_to_index=pd.Series(itemsFeatureMatrix.index)
+    index_to_songId=pd.Series(itemsFeatureMatrix.index.values, index=range(len(itemsFeatureMatrix.index)))
+    print(f"cosine similarity matrix shape: {cosineSimilarityMatrix.shape}")
+
+#generating hybrid recommendations for a given song id 
+    def hybreedRecommender(song_id, N_content=50, K_final=10):
+        if song_id not in songId_to_index.values:
+            return f"Song ID {song_id} not found in the recommender dataset"
+        songIndex=songId_to_index[songId_to_index == song_id].index[0] #getting index of song in the sim Matrix 
+        similarityScores=list(enumerate(cosineSimilarityMatrix[songIndex])) #getting sim score for songs
+        similarityScores=sorted(similarityScores,key=lambda x: x[1], reverse=True) #sorting songs based on sim score
+        
+        #getting the top N_content, most similar songs 
+        topContentSongIndices=[i[0]for i in similarityScores[1:N_content+1]]
+        topContentSongIds=index_to_songId[topContentSongIndices].tolist()
+
+        #retrieving details of the recomnd songs + sim score
+        recommendations= []
+        for i, score_tuple in enumerate(similarityScores[1:N_content+1]):
+            idx, score = score_tuple
+            songDetails=dfRecommenderFeatures[dfRecommenderFeatures['id']==index_to_songId[idx]]
+            if not songDetails.empty:
+                recommendations.append({
+                    'id': songDetails['id'].iloc[0],
+                    'name': songDetails['name'].iloc[0],
+                    'popularArtists': songDetails['popularArtists'].iloc[0],
+                    'similarityScores': score,
+                    'popularity': songDetails['popularity'].iloc[0]
+                })
+
+        recFunction=pd.DataFrame(recommendations)
+        # re ranking songs by popularity
+        recFunctionReranked=recFunction.sort_values(by='popularity', ascending=False)
+        return recFunctionReranked.head(K_final)
+    print("recommender function defined")
+else:
+    print("recommender features are empty,skipping recommendation!")
