@@ -15,9 +15,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.pipeline import Pipeline
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
-from sklearn.metrics import euclidean_distances
+from sklearn.metrics.pairwise import cosine_distances
 from scipy.spatial.distance import cdist
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import precision_score, recall_score, mean_squared_error
 
 #pandera library for schema validation, data checking and integration with ML 
@@ -389,3 +388,48 @@ if not dfRecommenderFeatures.empty and 'hybreedRecommender' in locals() and len 
             print(recomendedSongs[['name', 'popularArtists', 'similarityScores', 'popularity']])
         else:
             print("recommendation cannot be found")
+
+
+
+##EVALS OF THE RECOMMENDER##
+
+#creating a small test set og songs
+if not dfRecommenderFeatures.empty and 'hybreedRecommender' in locals() and 'itemsFeatureMatrix' in locals() and len(dfRecommenderFeatures)>50: #ensuring enuf data for testing
+    testSongIDs=dfRecommenderFeatures['id'].sample(n=min(50, len(dfRecommenderFeatures)-1), random_state=77).tolist()#ensuring songs are in itemFeatMatrix
+
+    allMeanSimilarities=[]
+    allMeanPopularities=[]
+    print(f"evaluating the score on {len(testSongIDs)} test songs")
+
+    for songIDtest in testSongIDs:
+        recommendationsDF=hybreedRecommender(songIDtest, N_content=50, K_final=10)
+
+        #Mean cosine similarity calc
+        if isinstance(recommendationsDF, pd.DataFrame) and not recommendationsDF.empty:
+            inputSongVector=itemsFeatureMatrix.loc[songIDtest].values.reshape(1, -1)#grabbing feature vector of input song
+            recommendedIDs=recommendationsDF['id'].tolist()#grabbing feature vectors of recommended songs
+            validRecommendedIDs=[rid for rid in recommendedIDs if rid in itemsFeatureMatrix.index]#filtering item featue matrix
+            if validRecommendedIDs:
+                recommendedVectors=itemsFeatureMatrix.loc[validRecommendedIDs].values
+                #calculating cosine similarities between input and recommended songs
+                similaritiesToInput=cosine_similarity(inputSongVector, recommendedVectors)[0]
+                allMeanSimilarities.append(np.mean(similaritiesToInput)) 
+
+        #Mean Popularity of Recommendations
+        allMeanPopularities.append(recommendationsDF['popularity'].mean())
+    
+    #calculating the Total average Metrics
+    totalMeanCosineSimilarity=np.mean(allMeanSimilarities) if allMeanSimilarities else 0
+    totalMeanPopularityofRecs=np.mean(allMeanPopularities) if allMeanPopularities else 0
+
+    print(f"\n~~~~  EVALS OUTPUT ~~~~")
+    print(f"number of test songs: {len(testSongIDs)}")
+    print(f"number of recs generated per song for eval:10")
+    print(f"mean cosine similarity of recs to input song:{totalMeanCosineSimilarity:.4f}")
+    print(f"mean popularity of recs songs: {totalMeanPopularityofRecs:.2f}")
+
+    #calc average popularity in the recs datset
+    avgPopsInRecDataset=dfRecommenderFeatures['popularity'].mean()
+    print(f"average popoularity in recommender datset: {avgPopsInRecDataset:.2f}")
+else:
+    print("evals cant be performd")
