@@ -370,3 +370,22 @@ if not dfRecommenderFeatures.empty and 'id' in dfRecommenderFeatures.columns:
     print("recommender function defined")
 else:
     print("recommender features are empty,skipping recommendation!")
+
+##SAMPLE RECOMMENDATION##
+
+if not dfRecommenderFeatures.empty and 'hybreedRecommender' in locals() and len (dfRecommenderFeatures) >10:
+    sampleSongs=dfRecommenderFeatures.sample(3, random_state=123)
+
+    for idx, songRows in sampleSongs.iterrows():
+        songIdtoRecommend=songRows['id']
+        songNames=songRows['name']
+        songArtist=songRows['popularArtists']
+        print(f"\n~~~ Recommendations for: '{songNames}' by {songArtist} (ID: {songIdtoRecommend}) ~~~")
+
+        recomendedSongs=hybreedRecommender(songIdtoRecommend, N_content=50, K_final=5)
+        if isinstance(recomendedSongs, str):
+            print(recomendedSongs)
+        elif not recomendedSongs.empty:
+            print(recomendedSongs[['name', 'popularArtists', 'similarityScores', 'popularity']])
+        else:
+            print("recommendation cannot be found")
