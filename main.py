@@ -127,16 +127,17 @@ availableAudioFeatures = [col for col in audioFeatures if col in df_data.columns
 n=len(availableAudioFeatures)
 ncols=4
 nrows=(n+ncols-1)//ncols
-plt.figure(figsize=(4*ncols,3*nrows))
+fig, axes=plt.subplots(nrows,ncols,figsize=(4*ncols,3*nrows))
 
 #drawing eaxh subplot by looping over the features
-for i, col in enumerate(availableAudioFeatures, start=1):
-        ax=plt.subplot(nrows,ncols,i)
+for ax, col in zip(axes.flatten(), availableAudioFeatures):
         sns.histplot(df_data[col], kde=True,bins=50,ax=ax)
-        ax.set_title(col)
+        ax.set_title(col, fontsize=10)
+for ax in axes.flatten()[n:]:
+    ax.axis('off')
     #layout ajustments and by keeping it outside the loop
-plt.suptitle("Distribution of the numerical values of audioFeatures in data.csv", fontsize=17,y=1.07)
-plt.tight_layout
+fig.suptitle("Distribution of the numerical values of audioFeatures in data.csv", fontsize=14)
+fig.tight_layout(rect=[0,0,1,0.95])#leaving enuf space for title
 plt.show()
 
 #plotting the Popularity Distributions
@@ -154,7 +155,7 @@ correlationFeature = [f for f in correlationFeature if f in df_data.columns and 
 corrMatrrix = df_data[correlationFeature].corr()
 plt.figure(figsize=(12,8))
 sns.heatmap(corrMatrrix, annot=True, cmap='coolwarm')
-plt.title("CorrelationMatrix of AudioFeatures against Popularity")
+plt.title("Correlation Matrix of AudioFeatures against Popularity")
 plt.show()
 
 #PARSING 'artist' column to create a list of Populart artists
@@ -186,19 +187,22 @@ print(df_year.head)
 keyAudioFeatures = ['popularity', 'danceability', 'loudness', 'energy', 'tempo', 'valence', 'acousticness', 'speechiness', 'liveness']
 
 #prepare a large canvas for all the subplots
-n-len(keyAudioFeatures)
+n=len(keyAudioFeatures)
 ncols=3
 nrows=(n+ncols-1)//ncols
-plt.figure(figsize=(12,8))
+fig,axes=plt.subplots(nrows,ncols,figsize=(12,8), sharex=True)
+axes=axes.flatten()
 
 #loop over the keyAudioFeatures to populate each subplot
-for i, feature in enumerate(keyAudioFeatures,start=1):
+for ax, feature in zip(axes, keyAudioFeatures):
     if feature in df_year.columns:
-        ax=plt.subplot(nrows,ncols,i)
         sns.lineplot(x='year', y=feature, data=df_year,ax=ax)
-        ax.set_title(feature)
-plt.tight_layout()#adjusting the layout
-plt.suptitle("Trends of KeyAudioFeatures & Popularity Over the Years", y=1.07, fontsize=17)
+        ax.set_title(f"{feature.capitalize()} Over Years")
+        ax.grid(alpha=0.3)
+for ax in axes[n:]:
+    ax.axis('off')#turning off unused subplots
+fig.tight_layout(rect=[0,0,1,0.92])#adjusting the layout
+fig.suptitle("Trends of KeyAudioFeatures & Popularity Over the Years", y=0.98, fontsize=16)
 plt.show()#showing all the subplots in one large canvas
 
 #EDA on the Genre characteristics, data_by_genre.csv
@@ -210,8 +214,7 @@ print(f"\nNumber of Unique Genres: {df_genres['genres'].nunique()}")
 #creating a small batch of genres for simplicity
 sampleGenres = df_genres.sample(n=min(10, len(df_genres)), random_state=42)
 
-#picking the audio features for the genre plotting
-
+#picking audio features for genre plotting
 plotFeatures=[f for f in audioFeatures 
 if (f in sampleGenres.columns 
 and df_genres[f].dtype in ['float64', 'int64'] 
@@ -235,39 +238,45 @@ plt.tight_layout()
 plt.show()
 
 
-#PIPELINE for further Genre Analysis using TSNE
-#def_genresClean=df_genres.dropna(subset=['genres', 'danceability', 'energy', 'loudness'])
-
-#def_genresSummary=def_genresClean.groupby('genres').agg(
- #   mean_danceability=('danceability', 'mean'), 
-  #  max_energy=('energy', 'max'),
-   # stddev_loudness=('loudness', 'std')).reset_index()
+#PIPELINE for further Genre Analysis using PCA & t-SNE
+genreClean=df_genres.dropna(subset=['genres', 'danceability', 'energy', 'loudness'])
+genreSummary=(genreClean.groupby('genres').agg(
+   mean_danceability=('danceability', 'mean'), 
+   max_energy=('energy', 'max'),
+   stddev_loudness=('loudness', 'std')).reset_index())
 
 #dropping rows with NaNs
-#def_genresSummary.dropna(inplace=True)
+genreSummary.dropna(inplace=True)
 
-#separating the genre names
-#genre_names=def_genresSummary['genres']
-#X = def_genresSummary.drop(columns=['genres'])
+#scaling features
+featureColumns=['mean_danceability', 'max_energy', 'stddev_loudness']
+X = genreSummary[featureColumns].values
+scaler=StandardScaler()
+X_scaled=scaler.fit_transform(X)
 
-#normalising the features
-#scaler = StandardScaler()
-#X_scaled = scaler.fit_transform(X)
+#PCA to reduce dimensionality before t-SNE
+pca=PCA(n_components=0.95,random_state=42)#keeping 95% of variance
+X_pca=pca.fit_transform(X_scaled)
+print(f"PCA retained variance: {pca.explained_variance_ratio.sum():.2f}")
 
-#dimensionality reduction for visualisation using  t-SNE
-#tsne = TSNE(n_components=2,perplexity=30,n_iter=100,random_state=42)
-#X_tsne = tsne.fit_transform(X_scaled)
+#embedding  t-SNE
+tsne = TSNE(n_components=2,perplexity=30,n_iter=100,random_state=42)
+X_tsne = tsne.fit_transform(X_pca)
 
 #combining genre names for visualisation
-#df_tsne=pd.DataFrame(X_tsne, columns=['Dim1', 'Dim2'])
-#df_tsne['genres']=genre_names
+df_tsne=pd.DataFrame({
+    'Dim1':X_tsne[:,0],
+    'Dim2':X_tsne[:,1], 'genres':genreSummary['genres']})
 
-#plotting
-#plt.figure(figsize=(14,10))
-#sns.scatterplot(data=df_tsne, x='Dim1',y='Dim2',hue='genres',palette='tab10',s=100, legend=False)
-#plt.title("t-sne projection of Genres based on audioFeatures")
-#plt.show()
 
+#visualise the embedding
+tplt=plt.figure(figsize=(12,8))
+sns.scatterplot(data=df_tsne, x='Dim1',y='Dim2',hue='genres',palette='tab10',s=100, legend=False)
+plt.title("t-sne projection of Genres based on audioFeatures")
+plt.xlabel('component1')
+plt.ylabel('component2')
+plt.tight_layout()
+plt.show()
 
 
 #EDA on the ARTIST characteristics, data_by_artist.csv
@@ -278,7 +287,7 @@ print(f"\nNumber of Unique Artists: {df_artist['artists'].nunique()}")
 
 #distribution of artist popularity
 if 'popularity' in df_artist.columns:
-    plt.figure(figsize=(10, 7))
+    plt.figure(figsize=(10, 8))
     sns.histplot(df_artist['popularity'], kde=True, bins=50)
     plt.title('Distribution of Artist popularity from the artist dataset')
     plt.xlabel('Mean Popularity')
@@ -292,6 +301,7 @@ if 'popularity' in df_artist.columns:
 #scatterPlot showing energy against danceability 
 
 if 'energy' in df_artist.columns and 'danceability' in df_artist.columns:
+
     #we create a sample of artists to avoid overplotting
     sampleOfArtist = (df_artist.sample(n=min(5000, len(df_artist)), random_state=1) if len(df_artist) > 0 else pd.DataFrame())
     if sampleOfArtist.empty:
@@ -307,23 +317,10 @@ if 'energy' in df_artist.columns and 'danceability' in df_artist.columns:
         plt.ylabel("Mean Energy")
         plt.tight_layout()#for tidying up
         plt.show()
-
-    #we create a sample of artists to avoid overplotting
-  #  sampleOfArtist = df_artist.sample(n=min(5000, len(df_artist)), random_state=1) if len(df_artist) > 0 else pd.DataFrame()
-   # if not sampleOfArtist.empty:
-    #    sns.scatterplot(x='danceability', y='energy', data=sampleOfArtist, alpha=0.5, 
-     #                   size='popularity' if 'popularity' in sampleOfArtist.columns else None,
-      #                  hue='loudness' if 'loudness' in sampleOfArtist.columns else None)
-       # plt.title('Artist Energy versus Danceability')
-        #plt.xlabel('Mean Danceability')
-        #plt.ylabel('Mean Energy')
-       # plt.show()
-    #else:
-    #    print("there is not enough artist data available")
 else:
     print("data_by_artist.csv is empty or the columns we are looking for do not exist")
 
-##RECOMMENDER SETUP
+## RECOMMENDER SETUP ##
 
 #data preparation for the recommender
 if not df_data.empty and 'popularArtists' in df_data.columns:
@@ -349,7 +346,7 @@ if not df_data.empty and 'popularArtists' in df_data.columns:
 
         scaler=MinMaxScaler()
         dfRecommenderFeatures[contentFeatures]=scaler.fit_transform(dfRecommenderFeatures[contentFeatures])
-        print("\nprocessed features for recommender{first 5 rows}:")
+        print("\nprocessed features for recommender {first 5 rows}:")
         print(dfRecommenderFeatures.head())
 else:
     print("main datset is empty or popular artists column was not created")
@@ -461,5 +458,6 @@ if not dfRecommenderFeatures.empty and 'hybreedRecommender' in locals() and 'ite
     #calc average popularity in the recs datset
     avgPopsInRecDataset=dfRecommenderFeatures['popularity'].mean()
     print(f"average popoularity in recommender datset: {avgPopsInRecDataset:.2f}")
+    print("TASK COMPLETED, END OF RS-OUTPUT!")
 else:
     print("evals cant be performd")
