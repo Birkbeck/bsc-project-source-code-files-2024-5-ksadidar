@@ -116,27 +116,31 @@ def analyse_dataframes(df, df_name):
 
 #create a list of audio features from observaytions of data.csv for easier feature selection
 audioFeatures = ['acoustisness', 'danceability', 'duration_ms', 'energy', 
-                'instrumentalness', 'loudness', 'liveness', 'speechiness', 'tempo', 'valence', 
-                'popularity', 'duration_ms', 'key', 'mode', 'time_period']
+                'instrumentalness', 'loudness', 'liveness', 'speechiness', 
+                'tempo', 'valence', 'popularity', 'key', 'mode', 'time_period']
 
 
 #Distributing the numerical values of audioFeatures
+availableAudioFeatures = [col for col in audioFeatures if col in df_data.columns if df_data[col].dtype in ['int64', 'float64']]
 
-#checking if the features are available in the dataset
-availableAudioFeatures = [col for col in audioFeatures if col in df_data.columns]
+#setting up one big figure to plot all the graphs in
+n=len(availableAudioFeatures)
+ncols=4
+nrows=(n+ncols-1)//ncols
+plt.figure(figsize=(4*ncols,3*nrows))
 
-#plotting the features
-for i, col in enumerate(availableAudioFeatures):
-    if df_data[col].dtype in ['int64', 'float64']:
-        plt.subplot(4,4, i+1)
-        sns.histplot(df_data[col], kde=True,bins=50)
-        plt.title(col)
-    plt.tight_layout
-    plt.suptitle("Distribution of the numerical values of audioFeatures in data.csv")
-    plt.show()
+#drawing eaxh subplot by looping over the features
+for i, col in enumerate(availableAudioFeatures, start=1):
+        ax=plt.subplot(nrows,ncols,i)
+        sns.histplot(df_data[col], kde=True,bins=50,ax=ax)
+        ax.set_title(col)
+    #layout ajustments and by keeping it outside the loop
+plt.suptitle("Distribution of the numerical values of audioFeatures in data.csv", fontsize=17,y=1.07)
+plt.tight_layout
+plt.show()
 
 #plotting the Popularity Distributions
-plt.figure(figsize=(11,7))
+plt.figure(figsize=(12,8))
 sns.histplot(df_data['popularity'], kde=True, bins=50)
 plt.title('Distribution of song popularity in the dataset')
 plt.xlabel('Popularity')
@@ -148,7 +152,7 @@ print(f"Popularity Stats:\n{df_data['popularity'].describe()} ")
 correlationFeature = audioFeatures+['popularity']
 correlationFeature = [f for f in correlationFeature if f in df_data.columns and df_data[f].dtype in ['int64', 'float64']]
 corrMatrrix = df_data[correlationFeature].corr()
-plt.figure(figsize=(14,10))
+plt.figure(figsize=(12,8))
 sns.heatmap(corrMatrrix, annot=True, cmap='coolwarm')
 plt.title("CorrelationMatrix of AudioFeatures against Popularity")
 plt.show()
@@ -180,15 +184,22 @@ print(df_year.head)
 
 #plotting key audioFeatures to see trends over the years
 keyAudioFeatures = ['popularity', 'danceability', 'loudness', 'energy', 'tempo', 'valence', 'acousticness', 'speechiness', 'liveness']
-plt.figure(figsize=(17,14))
-for i, feature in enumerate(keyAudioFeatures):
+
+#prepare a large canvas for all the subplots
+n-len(keyAudioFeatures)
+ncols=3
+nrows=(n+ncols-1)//ncols
+plt.figure(figsize=(12,8))
+
+#loop over the keyAudioFeatures to populate each subplot
+for i, feature in enumerate(keyAudioFeatures,start=1):
     if feature in df_year.columns:
-        plt.subplot(5,4,i+1)
-        sns.lineplot(x='year', y=feature, data=df_year)
-        plt.title('Audio Features over the years')
-    plt.tight_layout()
-    plt.suptitle("Trends of KeyAudioFeatures & Popularity Over the Years", y=1.02, fontsize=14)
-    plt.show()
+        ax=plt.subplot(nrows,ncols,i)
+        sns.lineplot(x='year', y=feature, data=df_year,ax=ax)
+        ax.set_title(feature)
+plt.tight_layout()#adjusting the layout
+plt.suptitle("Trends of KeyAudioFeatures & Popularity Over the Years", y=1.07, fontsize=17)
+plt.show()#showing all the subplots in one large canvas
 
 #EDA on the Genre characteristics, data_by_genre.csv
 print("\n-- Data by GENRE from the dataset data_by_genres.csv --")
@@ -199,25 +210,29 @@ print(f"\nNumber of Unique Genres: {df_genres['genres'].nunique()}")
 #creating a small batch of genres for simplicity
 sampleGenres = df_genres.sample(n=min(10, len(df_genres)), random_state=42)
 
-#plotting the sample genres
-plt.figure(figsize=(17,14))
+#picking the audio features for the genre plotting
+
 plotFeatures=[f for f in audioFeatures 
-if f in sampleGenres.columns and 
-df_genres[f].dtype in ['float64', 'int64'] 
+if (f in sampleGenres.columns 
+and df_genres[f].dtype in ['float64', 'int64'] 
 #filter the audio features with high variances to make the data plot ready
-and f not in ['key', 'mode', 'time_signature', 'duration_ms', 'tempo', 'loudness']]
+and f not in ['key', 'mode', 'time_signature', 'duration_ms', 'tempo', 'loudness'])]
 
+#scaling eaxh column to [0,1]
+scaled=sampleGenres.copy()
+for feat in plotFeatures:
+    col=scaled[feat]
+    scaled[feat]=(col-col.min())/(col.max()-col.min())
 
-
-#melt genres dataframe for easier plotting 
-if plotFeatures:
-    meltedGenres = sampleGenres.melt(id_vars=['genres'], value_vars=plotFeatures, var_name='features', value_name='value')
-    sns.barplot(x='features', y='value', hue='genres', data=meltedGenres)
-    plt.title('Comparison of audioFeatures from a sample of GENRES')
-    plt.xticks(rotation=45, ha='right')
-    plt.legend(bbox_to_anchor=(1.15, 1), loc=2)
-    plt.tight_layout()
-    plt.show()
+#melting genres dataframe before plotting
+meltedGenres=scaled.melt(id_vars=['genres'], value_vars=plotFeatures, var_name='features', value_name='value')
+plt.figure(figsize=(12,8))
+sns.barplot(x='features', y='value', hue='genres', data=meltedGenres)
+plt.title('Comparison of *Normalised* audioFeatures from a sample of GENRES')
+plt.xticks(rotation=45, ha='right')
+plt.legend(bbox_to_anchor=(1.15, 1), loc=2)
+plt.tight_layout()
+plt.show()
 
 
 #PIPELINE for further Genre Analysis using TSNE
@@ -275,21 +290,36 @@ if 'popularity' in df_artist.columns:
     print(df_artist.nlargest(10, 'popularity')[['artists', 'popularity', 'count']])
 
 #scatterPlot showing energy against danceability 
+
 if 'energy' in df_artist.columns and 'danceability' in df_artist.columns:
-    plt.figure(figsize=(10,8))
+    #we create a sample of artists to avoid overplotting
+    sampleOfArtist = (df_artist.sample(n=min(5000, len(df_artist)), random_state=1) if len(df_artist) > 0 else pd.DataFrame())
+    if sampleOfArtist.empty:
+        print("there is not enough artist data available")
+    else:
+        #setting up the big hexbin fig
+        plt.figure(figsize=(10,8))
+        hexBin=plt.hexbin(x=sampleOfArtist['danceability'], y=sampleOfArtist['energy'], gridsize=40,cmap='Blues',mincnt=1)
+        countBin=plt.colorbar(hexBin)
+        countBin.set_label('count in bin')
+        plt.title("Hexbin: Artist Energy versus Danceability")
+        plt.xlabel("Mean Danceability")
+        plt.ylabel("Mean Energy")
+        plt.tight_layout()#for tidying up
+        plt.show()
 
     #we create a sample of artists to avoid overplotting
-    sampleOfArtist = df_artist.sample(n=min(5000, len(df_artist)), random_state=1) if len(df_artist) > 0 else pd.DataFrame()
-    if not sampleOfArtist.empty:
-        sns.scatterplot(x='danceability', y='energy', data=sampleOfArtist, alpha=0.5, 
-                        size='popularity' if 'popularity' in sampleOfArtist.columns else None,
-                        hue='loudness' if 'loudness' in sampleOfArtist.columns else None)
-        plt.title('Artist Energy versus Danceability')
-        plt.xlabel('Mean Danceability')
-        plt.ylabel('Mean Energy')
-        plt.show()
-    else:
-        print("there is not enough artist data available")
+  #  sampleOfArtist = df_artist.sample(n=min(5000, len(df_artist)), random_state=1) if len(df_artist) > 0 else pd.DataFrame()
+   # if not sampleOfArtist.empty:
+    #    sns.scatterplot(x='danceability', y='energy', data=sampleOfArtist, alpha=0.5, 
+     #                   size='popularity' if 'popularity' in sampleOfArtist.columns else None,
+      #                  hue='loudness' if 'loudness' in sampleOfArtist.columns else None)
+       # plt.title('Artist Energy versus Danceability')
+        #plt.xlabel('Mean Danceability')
+        #plt.ylabel('Mean Energy')
+       # plt.show()
+    #else:
+    #    print("there is not enough artist data available")
 else:
     print("data_by_artist.csv is empty or the columns we are looking for do not exist")
 
