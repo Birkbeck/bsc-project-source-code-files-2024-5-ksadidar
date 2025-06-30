@@ -194,7 +194,7 @@ fig.tight_layout(rect=[0,0,1,0.92])#adjusting the layout
 fig.suptitle("Trends of KeyAudioFeatures & Popularity Over the Years", y=0.98, fontsize=16)
 plt.show()#showing all the subplots in one large canvas
 
-#E# DA on the Genre characteristics, data_by_genre.csv ##
+#EDA on the Genre characteristics, data_by_genre.csv ##
 
 print("\n-- Data by GENRE from the dataset data_by_genres.csv --")
 print(f"Shape: {df_genres.shape}")
@@ -226,9 +226,6 @@ plt.xticks(rotation=45, ha='right')
 plt.legend(bbox_to_anchor=(1.15, 1), loc=2)
 plt.tight_layout()
 plt.show()
-
-
-
 
 #EDA on the ARTIST characteristics, data_by_artist.csv
 print("\n-- Data by GENRE from the dataset data_by_artist.csv --")
