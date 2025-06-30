@@ -3,8 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-#from surprise import SVD, Dataset, Reader
-#from surprise.model_selection import train_test_split
+
 
 
 # scikitlearn packages for further statistical learning from the dataset
@@ -12,17 +11,6 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.pipeline import Pipeline
-from sklearn.manifold import TSNE
-from sklearn.decomposition import PCA
-from sklearn.metrics.pairwise import cosine_distances
-from scipy.spatial.distance import cdist
-from sklearn.metrics import precision_score, recall_score, mean_squared_error
-
-#pandera library for schema validation, data checking and integration with ML 
-#import pandera
-#from pandera import Column, DataFrameSchema, Check
-
 #ast for safe evaluation of string representation of dicts and lists
 import ast
 
@@ -40,7 +28,7 @@ df_data = pd.read_csv('data.csv')
 print(df_data.head())
 
 
-#DATA CLEANING
+## DATA CLEANING
 
 #checking and filling in for missing values
 for col in df_artist.columns:
@@ -178,7 +166,8 @@ for i, value in enumerate(Popular_artists.values):
 plt.tight_layout()
 plt.show()
 
-#EDA of data_by_year, to find trend over time
+## EDA of data_by_year, to find trend over time ##
+
 print("\n-- Data by YEAR from the dataset data_by_year.csv --")
 print(f"Shape: {df_year.shape}")
 print(df_year.head)
@@ -205,7 +194,8 @@ fig.tight_layout(rect=[0,0,1,0.92])#adjusting the layout
 fig.suptitle("Trends of KeyAudioFeatures & Popularity Over the Years", y=0.98, fontsize=16)
 plt.show()#showing all the subplots in one large canvas
 
-#EDA on the Genre characteristics, data_by_genre.csv
+#E# DA on the Genre characteristics, data_by_genre.csv ##
+
 print("\n-- Data by GENRE from the dataset data_by_genres.csv --")
 print(f"Shape: {df_genres.shape}")
 print(df_genres.head)
@@ -238,45 +228,6 @@ plt.tight_layout()
 plt.show()
 
 
-#PIPELINE for further Genre Analysis using PCA & t-SNE
-genreClean=df_genres.dropna(subset=['genres', 'danceability', 'energy', 'loudness'])
-genreSummary=(genreClean.groupby('genres').agg(
-   mean_danceability=('danceability', 'mean'), 
-   max_energy=('energy', 'max'),
-   stddev_loudness=('loudness', 'std')).reset_index())
-
-#dropping rows with NaNs
-genreSummary.dropna(inplace=True)
-
-#scaling features
-featureColumns=['mean_danceability', 'max_energy', 'stddev_loudness']
-X = genreSummary[featureColumns].values
-scaler=StandardScaler()
-X_scaled=scaler.fit_transform(X)
-
-#PCA to reduce dimensionality before t-SNE
-pca=PCA(n_components=0.95,random_state=42)#keeping 95% of variance
-X_pca=pca.fit_transform(X_scaled)
-print(f"PCA retained variance: {pca.explained_variance_ratio.sum():.2f}")
-
-#embedding  t-SNE
-tsne = TSNE(n_components=2,perplexity=30,n_iter=100,random_state=42)
-X_tsne = tsne.fit_transform(X_pca)
-
-#combining genre names for visualisation
-df_tsne=pd.DataFrame({
-    'Dim1':X_tsne[:,0],
-    'Dim2':X_tsne[:,1], 'genres':genreSummary['genres']})
-
-
-#visualise the embedding
-tplt=plt.figure(figsize=(12,8))
-sns.scatterplot(data=df_tsne, x='Dim1',y='Dim2',hue='genres',palette='tab10',s=100, legend=False)
-plt.title("t-sne projection of Genres based on audioFeatures")
-plt.xlabel('component1')
-plt.ylabel('component2')
-plt.tight_layout()
-plt.show()
 
 
 #EDA on the ARTIST characteristics, data_by_artist.csv
@@ -450,10 +401,10 @@ if not dfRecommenderFeatures.empty and 'hybreedRecommender' in locals() and 'ite
     totalMeanPopularityofRecs=np.mean(allMeanPopularities) if allMeanPopularities else 0
 
     print(f"\n~~~~  EVALS OUTPUT ~~~~")
-    print(f"number of test songs: {len(testSongIDs)}")
-    print(f"number of recs generated per song for eval:10")
-    print(f"mean cosine similarity of recs to input song:{totalMeanCosineSimilarity:.4f}")
-    print(f"mean popularity of recs songs: {totalMeanPopularityofRecs:.2f}")
+    print(f"Number of Test Songs: {len(testSongIDs)}")
+    print(f"Number of recommendations generated per song for eval:10")
+    print(f"Mean Cosine Similarity of recommendations to input song:{totalMeanCosineSimilarity:.4f}")
+    print(f"Mean Popularity of recommended songs: {totalMeanPopularityofRecs:.2f}")
 
     #calc average popularity in the recs datset
     avgPopsInRecDataset=dfRecommenderFeatures['popularity'].mean()
