@@ -36,7 +36,7 @@ source venv/bin/activate   #macOS/Linux
 venv\Scripts\activate      #Windows
 
 3. the above dependencies can be installed using pip:
-pip instll -r requirements.txt
+pip install -r requirements.txt
 
 
 PROJECT SOURCECODE USAGE GUIDELINES
