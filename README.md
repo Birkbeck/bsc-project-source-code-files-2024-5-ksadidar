@@ -28,7 +28,8 @@ scikit-learn
 
 
 1.clone the repository:
-git clone bsc-project-source-code-files-2024-5-ksadidar
+git clone https://github.com/Birkbeck/bsc-project-source-code-files-2024-5-ksadidar.git
+
 
 2. create or activate an existing virtual environment from the repo:
 python3 -m venv venv
