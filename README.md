@@ -33,10 +33,12 @@ git clone https://github.com/Birkbeck/bsc-project-source-code-files-2024-5-ksadi
 
 2. create or activate an existing virtual environment from the repo:
 python3 -m venv venv
+
 source venv/bin/activate   #macOS/Linux
+
 venv\Scripts\activate      #Windows
 
-3. the above dependencies can be installed using pip:
+4. the above dependencies can be installed using pip:
 pip install -r requirements.txt
 
 
